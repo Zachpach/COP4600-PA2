@@ -19,6 +19,10 @@ impl BucketNode {
     fn equals(&self, other: &BucketNode) -> bool {
         return self.hash == other.hash && self.name == other.name;
     }
+
+    fn to_string(&self) -> String {
+       return format!("Node [ hash: {}, name: {}, salary: {} ] ", self.hash, self.name, self.salary);
+    }
 }
 
 struct Bucket {
@@ -32,6 +36,17 @@ impl Bucket {
     }
     fn get(&self, p0: usize) -> &mut Bucket {
         todo!()
+    }
+    fn to_string(&self) -> String{
+        let bucket = self.bucket.lock().unwrap();
+        let mut s1 = String::from("Bucket: { ");
+        for element in bucket.iter() {
+            s1.push_str(element.to_string().as_str());
+            s1.push_str(", ");
+        }
+
+        s1.push_str(" }");
+        return s1;
     }
 }
 struct ConcurrentHashTable {
@@ -57,6 +72,17 @@ impl ConcurrentHashTable {
     fn search_by_name(&self, name: String) -> &mut Bucket {
         let hash = jenkins_one_at_a_time_hash(name.clone());
         return self.search_by_hash(hash);
+    }
+
+    fn to_string(&self) -> String {
+        let mut s1 = String::from("Bucket: { \n");
+        for element in self.buckets.iter() {
+            s1.push_str(element.to_string().as_str());
+            s1.push_str(", \n");
+        }
+
+        s1.push_str(" }");
+        return s1;
     }
 }
 
