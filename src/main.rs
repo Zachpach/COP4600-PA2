@@ -73,18 +73,15 @@ impl hash_struct {
         }
     }
     pub fn search(&mut self, hash: u32) -> Option<&mut hash_struct> {
-        // Check current node
-        // if self.hash == hash {
-        //     return Some(self);
-        // }
-        //
-        // // Check the rest of the list
-        // if let Some(ref next) = self.next {
-        //     next.search(hash)
-        // } else {
-        //     None
-        // }
-        None
+        if self.hash == hash {
+            return Some(self);
+        }
+
+        if let Some(ref mut next) = self.next {
+            next.search(hash)
+        } else {
+            None
+        }
     }
     fn print(& self) {
         println!("Hash: {}", self.hash);
