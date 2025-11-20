@@ -1,5 +1,7 @@
 use std::string::String;
 use std::sync::RwLock;
+use std::fs::File;
+use std::io::{self, BufRead};
 
 /**
 This is the hash table structure given by the assignment
@@ -9,7 +11,7 @@ Order should be upheld in the insert method
 */
 struct hash_struct{
     hash: u32,
-    name: String,
+    name: String, // Key
     salary: u32,
     next: Option<Box<hash_struct>>,
 }
@@ -95,15 +97,138 @@ impl hash_struct {
     }
 }
 
+fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    // Split and trim fields
+    let parts: Vec<String> = trimmed.split(',').map(|s| s.trim().to_string()).collect();
+
+    if parts.is_empty() {
+        eprintln!("Empty command: {}", line);
+        return None;
+    }
+
+    // normalize command
+    let command = parts[0].to_lowercase();
+
+    match command.as_str() {
+        "insert" => {
+            if parts.len() != 4 {
+                eprintln!("Invalid format for INSERT: {}", line);
+                return None;
+            }
+
+            let salary = match parts[2].parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => {
+                    eprintln!("Invalid salary in INSERT: {}", line);
+                    return None;
+                }
+            };
+
+            let priority = match parts[3].parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => {
+                    eprintln!("Invalid priority in INSERT: {}", line);
+                    return None;
+                }
+            };
+
+            Some((command, parts[1].clone(), salary, priority))
+        }
+
+        "delete" => {
+            if parts.len() != 3 {
+                eprintln!("Invalid format for DELETE: {}", line);
+                return None;
+            }
+
+            let priority = match parts[2].parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => {
+                    eprintln!("Invalid priority in DELETE: {}", line);
+                    return None;
+                }
+            };
+
+            Some((command, parts[1].clone(), 0, priority))
+        }
+
+        "update" => {
+            if parts.len() != 3 {
+                eprintln!("Invalid format for UPDATE: {}", line);
+                return None;
+            }
+
+            let salary = match parts[2].parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => {
+                    eprintln!("Invalid salary in UPDATE: {}", line);
+                    return None;
+                }
+            };
+
+            Some((command, parts[1].clone(), salary, 0))
+        }
+
+        "search" => {
+            if parts.len() != 3 {
+                eprintln!("Invalid format for SEARCH: {}", line);
+                return None;
+            }
+
+            let priority = match parts[2].parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => {
+                    eprintln!("Invalid priority in SEARCH: {}", line);
+                    return None;
+                }
+            };
+
+            Some((command, parts[1].clone(), 0, priority))
+        }
+
+        "print" => {
+            if parts.len() != 2 {
+                eprintln!("Invalid format for PRINT: {}", line);
+                return None;
+            }
+
+            let priority = match parts[1].parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => {
+                    eprintln!("Invalid priority in PRINT: {}", line);
+                    return None;
+                }
+            };
+
+            Some((command, String::new(), 0, priority))
+        }
+
+        _ => {
+            eprintln!("Unknown command: {}", command);
+            None
+        }
+    }
+}
 
 // static cv_ordering: u32
 static WRITER_LOCK: RwLock<Option<hash_struct>> = RwLock::new(None);
 static READER_LOCK: RwLock<Option<hash_struct>> = RwLock::new(None);
 
 fn main() {
+    let file = File::open("commands.txt")?;
+    let reader = io::BufReader::new(file);
 
     let hash:hash_struct = hash_struct::new(0, String::from("hello"), 0);
-
+    
+    /*  for i in 0..input.len() {
+            let out: Option<(String, String, u32, u32)> = parse_line(input[i].clone());
+        println!("Line{}: {:?}", i, out);
+    }*/
 }
 
 fn jenkins_one_at_a_time_hash(key: String) -> u32 {
