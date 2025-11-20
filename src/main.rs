@@ -225,9 +225,12 @@ fn main() {
 
     let hash:hash_struct = hash_struct::new(0, String::from("hello"), 0);
     
-    /*  for i in 0..input.len() {
-            let out: Option<(String, String, u32, u32)> = parse_line(input[i].clone());
-        println!("Line{}: {:?}", i, out);
+    /*  Example use of the input/output
+        input comes from the newline on the file reader
+        let mut out: (String, String, u32, u32);
+        for i in 0..input.len() {
+            out = parse_line(input[i].clone()).unwrap();
+            println!("Line{}: {} {} {:?} {:?}", i, out.0,out.1,out.2,out.3);
     }*/
 }
 
