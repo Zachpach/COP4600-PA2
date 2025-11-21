@@ -3,6 +3,7 @@ use std::io::{self, BufRead};
 use std::string::String;
 use std::sync::{Arc, RwLock};
 
+static mut OUTPUT_BUFF: Option<Mutex<Vec<String>>> = None;
 /**
 This is the hash table structure given by the assignment
 This is, in fact, a linked list, don't ask me I'm just following instruction I've already axed the code once because I made a hash table once
@@ -100,6 +101,16 @@ impl hash_struct {
         }
     }
 
+    fn log_event(priority: u32, msg: &str) {
+        unsafe {
+            let timestamp = current_timestamp();
+            if let Some(ref mutex) = OUTPUT_BUFF {
+                let mut buffer = mutex.lock().unwrap();
+                buffer.push(format!("{}: THREAD {} {}", timestamp, priority, msg));
+            }
+        }
+    }
+
     pub fn to_string(&self) -> String {
         return format!("{}, {}, {}", self.hash, self.name, self.salary);
     }
@@ -115,6 +126,13 @@ impl HashStructWrapper {
             head: RwLock::new(hash_struct::new(0, "head".parse().unwrap(), 0)),
         };
     }
+}
+
+fn current_timestamp() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis()
 }
 
 fn parse_thread_command(line: String) -> Option<usize> {
@@ -245,6 +263,11 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    unsafe {
+        OUTPUT_BUFF = Some(Mutex::new(Vec::new()));
+    }
+    
     let file = File::open("commands.txt")?;
     let mut reader = io::BufReader::new(file);
     let mut commands: Vec<(String, String, u32, u32)> = vec![];
@@ -265,12 +288,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     println!("Max concurrent threads set to: {}", max_threads);
-
-    /*  Example use of the input/output
-        input comes from the newline on the file reader
-        let mut out: (String, String, u32, u32);
-    }*/
-    //generate threads
     //  can get max num of threads from the max_threads var and seperately roll out the commands
 
 
