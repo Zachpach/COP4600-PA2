@@ -1,6 +1,8 @@
 use std::io::BufRead;
 use std::string::String;
 use std::sync::RwLock;
+use std::fs::File;
+use std::io::{self, BufRead};
 
 /**
 This is the hash table structure given by the assignment
@@ -8,7 +10,7 @@ This is, in fact, a linked list, don't ask me I'm just following instruction I'v
 The linked list is will hold an order based on the hash value that will be generated from the name string
 Order should be upheld in the insert method
 */
-struct hash_struct {
+struct hash_struct{
     hash: u32,
     name: String, // Key
     salary: u32,
@@ -234,9 +236,10 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
     }
 }
 
-fn main() {
-    // let file = File::open("commands.txt")?;
-    // let reader = io::BufReader::new(file);
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let file = File::open("commands.txt")?;
+    let reader = io::BufReader::new(file);
 
     let hash_struct = HashStructWrapper::new();
     test_elements(&hash_struct);
@@ -249,12 +252,13 @@ fn main() {
             out = parse_line(input[i].clone()).unwrap();
             println!("Line{}: {} {} {:?} {:?}", i, out.0,out.1,out.2,out.3);
     }*/
+    Ok(())
 }
 
 fn jenkins_one_at_a_time_hash(key: String) -> u32 {
     let mut i: usize = 0;
     let mut hash: u32 = 0;
-    while i != key.len() {
+    while i != key.len(){
         hash += key.as_bytes()[i] as u32;
         hash += hash << 10;
         hash ^= hash >> 6;
