@@ -219,7 +219,7 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
 static WRITER_LOCK: RwLock<Option<hash_struct>> = RwLock::new(None);
 static READER_LOCK: RwLock<Option<hash_struct>> = RwLock::new(None);
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file = File::open("commands.txt")?;
     let reader = io::BufReader::new(file);
 
@@ -232,6 +232,7 @@ fn main() {
             out = parse_line(input[i].clone()).unwrap();
             println!("Line{}: {} {} {:?} {:?}", i, out.0,out.1,out.2,out.3);
     }*/
+    Ok(())
 }
 
 fn jenkins_one_at_a_time_hash(key: String) -> u32 {
