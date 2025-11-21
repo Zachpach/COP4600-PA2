@@ -1,8 +1,7 @@
-use std::io::BufRead;
-use std::string::String;
-use std::sync::RwLock;
 use std::fs::File;
 use std::io::{self, BufRead};
+use std::string::String;
+use std::sync::RwLock;
 
 /**
 This is the hash table structure given by the assignment
@@ -10,7 +9,7 @@ This is, in fact, a linked list, don't ask me I'm just following instruction I'v
 The linked list is will hold an order based on the hash value that will be generated from the name string
 Order should be upheld in the insert method
 */
-struct hash_struct{
+struct hash_struct {
     hash: u32,
     name: String, // Key
     salary: u32,
@@ -236,14 +235,30 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
     }
 }
 
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file = File::open("commands.txt")?;
     let reader = io::BufReader::new(file);
-
+    let commands: Vec<String> = Vec::new();
+    let mut threads = vec![];
     let hash_struct = HashStructWrapper::new();
+
     test_elements(&hash_struct);
 
+    // read file and place commands into the commands array
+
+    //generate threads
+    for command in commands {
+        let current_thread = std::thread::spawn(move || {
+            thread_op(&hash_struct, command);
+        });
+
+        threads.push(current_thread)
+    }
+
+    // shut down threads
+    for thread in threads {
+        thread.join().unwrap();
+    }
 
     /*  Example use of the input/output
         input comes from the newline on the file reader
@@ -258,7 +273,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn jenkins_one_at_a_time_hash(key: String) -> u32 {
     let mut i: usize = 0;
     let mut hash: u32 = 0;
-    while i != key.len(){
+    while i != key.len() {
         hash += key.as_bytes()[i] as u32;
         hash += hash << 10;
         hash ^= hash >> 6;
@@ -268,6 +283,14 @@ fn jenkins_one_at_a_time_hash(key: String) -> u32 {
     hash ^= hash >> 11;
     hash += hash << 15;
     return hash;
+}
+
+fn thread_op(hash_structure: &HashStructWrapper, command: String) {
+    parse_line(command);
+
+    // control ordering run command once it the correct time
+
+
 }
 
 fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {}
