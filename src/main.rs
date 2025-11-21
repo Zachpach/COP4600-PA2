@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::string::String;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 /**
 This is the hash table structure given by the assignment
@@ -95,7 +95,7 @@ impl hash_struct {
     }
     fn print(&self) {
         if let Some(ref next) = self.next {
-            println!("{}", self.to_string());
+            println!("{}", next.to_string());
             next.print();
         }
     }
@@ -246,12 +246,12 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file = File::open("commands.txt")?;
-    let reader = io::BufReader::new(file);
+    let mut reader = io::BufReader::new(file);
     let mut commands: Vec<(String, String, u32, u32)> = vec![];
     let mut threads = vec![];
-    let hash_struct = HashStructWrapper::new();
+    let hash_struct = Arc::new(HashStructWrapper::new());
 
-    test_elements(&hash_struct);
+    // test_elements(&hash_struct);
 
     // read file and place commands into the commands array
     let mut first_line = String::new();
@@ -271,20 +271,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut out: (String, String, u32, u32);
     }*/
     //generate threads
-    /* can get max num of threads from the max_threads var and seperately roll out the commands
-    for command in commands {
-        let current_thread = std::thread::spawn(move || {
-            thread_op(&hash_struct, command);
-        });
+    //  can get max num of threads from the max_threads var and seperately roll out the commands
 
-        threads.push(current_thread)
-    }*/
 
     for line in reader.lines() {
-        let line = line?; 
+        let line = line?;
         if let Some(parsed) = parse_line(line) {
             commands.push(parsed);
         }
+    }
+
+
+    for command in commands {
+        let hs_clone = Arc::clone(&hash_struct);
+
+        let current_thread = std::thread::spawn(move || {
+            thread_op(&hs_clone, "command".to_string());
+        });
+
+        threads.push(current_thread)
     }
 
     // shut down threads
@@ -312,10 +317,10 @@ fn jenkins_one_at_a_time_hash(key: String) -> u32 {
 }
 
 fn thread_op(hash_structure: &HashStructWrapper, command: String) {
-    parse_line(command);
+    parse_line(command.clone());
 
     // control ordering run command once it the correct time
-
+    println!("Thread Command: {}", command);
 
 }
 
