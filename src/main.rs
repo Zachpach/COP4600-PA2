@@ -1,7 +1,6 @@
+use std::io::BufRead;
 use std::string::String;
 use std::sync::RwLock;
-use std::fs::File;
-use std::io::{self, BufRead};
 
 /**
 This is the hash table structure given by the assignment
@@ -9,7 +8,7 @@ This is, in fact, a linked list, don't ask me I'm just following instruction I'v
 The linked list is will hold an order based on the hash value that will be generated from the name string
 Order should be upheld in the insert method
 */
-struct hash_struct{
+struct hash_struct {
     hash: u32,
     name: String, // Key
     salary: u32,
@@ -26,7 +25,7 @@ impl hash_struct {
         }
     }
 
-    fn insert(&mut self, new_hash: hash_struct) {
+    fn insert(&mut self, new_hash: hash_struct) -> bool {
         match self.next {
             Some(ref mut next_node) => {
                 if new_hash.hash < next_node.hash {
@@ -34,14 +33,18 @@ impl hash_struct {
                     let mut boxed = Box::new(new_hash);
                     boxed.next = self.next.take();
                     self.next = Some(boxed);
+                    return true;
+                } else if new_hash.hash == next_node.hash {
+                    return false;
                 } else {
                     // Recur down the list
-                    next_node.insert(new_hash);
+                    return next_node.insert(new_hash);
                 }
             }
             None => {
                 // End of list → append
                 self.next = Some(Box::new(new_hash));
+                return true;
             }
         }
     }
@@ -65,35 +68,51 @@ impl hash_struct {
         false
     }
 
-
     pub fn update(&mut self, hash: u32, new_salary: u32) -> bool {
-        if let Some(node) = self.search(hash) {
-            node.salary = new_salary;
-            true
+        if self.hash == hash {
+            self.salary = new_salary;
+            return true;
+        }
+
+        if let Some(ref mut next) = self.next {
+            next.update(hash, new_salary)
         } else {
             false
         }
     }
-    pub fn search(&mut self, hash: u32) -> Option<&mut hash_struct> {
+
+    pub fn search(&self, hash: u32) -> Option<&hash_struct> {
         if self.hash == hash {
             return Some(self);
         }
 
-        if let Some(ref mut next) = self.next {
+        if let Some(ref next) = self.next {
             next.search(hash)
         } else {
             None
         }
     }
-    fn print(& self) {
-        println!("Hash: {}", self.hash);
-        println!("Name: {}", self.name);
-        println!("Salary: {}", self.salary);
-        println!("---");
-
+    fn print(&self) {
         if let Some(ref next) = self.next {
+            println!("{}", self.to_string());
             next.print();
         }
+    }
+
+    pub fn to_string(&self) -> String {
+        return format!("{}, {}, {}", self.hash, self.name, self.salary);
+    }
+}
+
+struct HashStructWrapper {
+    // head: hash_struct,
+    head: RwLock<hash_struct>,
+}
+impl HashStructWrapper {
+    pub fn new() -> Self {
+        return HashStructWrapper {
+            head: RwLock::new(hash_struct::new(0, "head".parse().unwrap(), 0)),
+        };
     }
 }
 
@@ -215,16 +234,14 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
     }
 }
 
-// static cv_ordering: u32
-static WRITER_LOCK: RwLock<Option<hash_struct>> = RwLock::new(None);
-static READER_LOCK: RwLock<Option<hash_struct>> = RwLock::new(None);
-
 fn main() {
-    let file = File::open("commands.txt")?;
-    let reader = io::BufReader::new(file);
+    // let file = File::open("commands.txt")?;
+    // let reader = io::BufReader::new(file);
 
-    let hash:hash_struct = hash_struct::new(0, String::from("hello"), 0);
-    
+    let hash_struct = HashStructWrapper::new();
+    test_elements(&hash_struct);
+
+
     /*  Example use of the input/output
         input comes from the newline on the file reader
         let mut out: (String, String, u32, u32);
@@ -237,7 +254,7 @@ fn main() {
 fn jenkins_one_at_a_time_hash(key: String) -> u32 {
     let mut i: usize = 0;
     let mut hash: u32 = 0;
-    while i != key.len(){
+    while i != key.len() {
         hash += key.as_bytes()[i] as u32;
         hash += hash << 10;
         hash ^= hash >> 6;
@@ -249,25 +266,48 @@ fn jenkins_one_at_a_time_hash(key: String) -> u32 {
     return hash;
 }
 
+fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {}
 
+fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {}
 
-fn insert(name: String, salary: u32, priority: u32) {
+fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {}
 
+fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {}
+fn print(hash_structure: &HashStructWrapper, priority: u32) {}
+
+fn test_elements(hash_struct_wrapper: &HashStructWrapper) {
+    hash_struct_wrapper
+        .head
+        .write()
+        .unwrap()
+        .insert(hash_struct::new(5, "dave".parse().unwrap(), 23000));
+    hash_struct_wrapper
+        .head
+        .write()
+        .unwrap()
+        .insert(hash_struct::new(3, "molly".parse().unwrap(), 45000));
+    hash_struct_wrapper
+        .head
+        .write()
+        .unwrap()
+        .insert(hash_struct::new(6, "albert".parse().unwrap(), 15000));
+    hash_struct_wrapper
+        .head
+        .write()
+        .unwrap()
+        .insert(hash_struct::new(5, "nick".parse().unwrap(), 68000));
+    hash_struct_wrapper
+        .head
+        .write()
+        .unwrap()
+        .insert(hash_struct::new(13, "bob".parse().unwrap(), 41000));
+    hash_struct_wrapper.head.read().unwrap().print();
+    {
+        let mut l = hash_struct_wrapper.head.read().unwrap();
+        let s = l.search(6).unwrap().to_string();
+        println!("found: {}", s.to_string());
+    }
+    hash_struct_wrapper.head.write().unwrap().delete(6);
+    hash_struct_wrapper.head.write().unwrap().update(3, 53000);
+    hash_struct_wrapper.head.read().unwrap().print();
 }
-
-fn delete( name: String, priority: u32) {
-
-}
-
-fn update( name: String, salary: u32, priority: u32) {
-
-}
-fn search( name: String, priority: u32) {
-
-}
-fn print( priority: u32) {
-
-}
-
-
-
