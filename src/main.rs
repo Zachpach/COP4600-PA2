@@ -117,6 +117,15 @@ impl HashStructWrapper {
     }
 }
 
+fn parse_thread_command(line: String) -> Option<usize> {
+    let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+    if parts.len() >= 2 && parts[0].to_lowercase() == "threads" {
+        parts[1].parse::<usize>().ok()
+    } else {
+        None
+    }
+}
+
 fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
@@ -161,12 +170,12 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
         }
 
         "delete" => {
-            if parts.len() != 3 {
+            if parts.len() != 4 {
                 eprintln!("Invalid format for DELETE: {}", line);
                 return None;
             }
 
-            let priority = match parts[2].parse::<u32>() {
+            let priority = match parts[3].parse::<u32>() {
                 Ok(v) => v,
                 Err(_) => {
                     eprintln!("Invalid priority in DELETE: {}", line);
@@ -178,7 +187,7 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
         }
 
         "update" => {
-            if parts.len() != 3 {
+            if parts.len() != 4 {
                 eprintln!("Invalid format for UPDATE: {}", line);
                 return None;
             }
@@ -195,12 +204,12 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
         }
 
         "search" => {
-            if parts.len() != 3 {
+            if parts.len() != 4 {
                 eprintln!("Invalid format for SEARCH: {}", line);
                 return None;
             }
 
-            let priority = match parts[2].parse::<u32>() {
+            let priority = match parts[3].parse::<u32>() {
                 Ok(v) => v,
                 Err(_) => {
                     eprintln!("Invalid priority in SEARCH: {}", line);
@@ -212,12 +221,12 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
         }
 
         "print" => {
-            if parts.len() != 2 {
+            if parts.len() != 4 {
                 eprintln!("Invalid format for PRINT: {}", line);
                 return None;
             }
 
-            let priority = match parts[1].parse::<u32>() {
+            let priority = match parts[3].parse::<u32>() {
                 Ok(v) => v,
                 Err(_) => {
                     eprintln!("Invalid priority in PRINT: {}", line);
@@ -238,21 +247,44 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file = File::open("commands.txt")?;
     let reader = io::BufReader::new(file);
-    let commands: Vec<String> = Vec::new();
+    let mut commands: Vec<(String, String, u32, u32)> = vec![];
     let mut threads = vec![];
     let hash_struct = HashStructWrapper::new();
 
     test_elements(&hash_struct);
 
     // read file and place commands into the commands array
+    let mut first_line = String::new();
+    reader.read_line(&mut first_line)?;
+    
+    let max_threads = match parse_thread_command(first_line.trim().to_string()) {
+        Some(n) if n > 0 => n,
+        _ => {
+            eprintln!("Failed to parse thread configuration or N is 0. Defaulting to 1.");
+            1
+        }
+    };
+    println!("Max concurrent threads set to: {}", max_threads);
 
+    /*  Example use of the input/output
+        input comes from the newline on the file reader
+        let mut out: (String, String, u32, u32);
+    }*/
     //generate threads
+    /* can get max num of threads from the max_threads var and seperately roll out the commands
     for command in commands {
         let current_thread = std::thread::spawn(move || {
             thread_op(&hash_struct, command);
         });
 
         threads.push(current_thread)
+    }*/
+
+    for line in reader.lines() {
+        let line = line?; 
+        if let Some(parsed) = parse_line(line) {
+            commands.push(parsed);
+        }
     }
 
     // shut down threads
@@ -260,13 +292,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         thread.join().unwrap();
     }
 
-    /*  Example use of the input/output
-        input comes from the newline on the file reader
-        let mut out: (String, String, u32, u32);
-        for i in 0..input.len() {
-            out = parse_line(input[i].clone()).unwrap();
-            println!("Line{}: {} {} {:?} {:?}", i, out.0,out.1,out.2,out.3);
-    }*/
+
     Ok(())
 }
 
