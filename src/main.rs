@@ -5,8 +5,7 @@ use std::string::String;
 use std::sync::{Arc, RwLock, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-static mut OUTPUT_BUFF: Option<Mutex<Vec<String>>> = None;
-/**
+/*
 This is the hash table structure given by the assignment
 This is, in fact, a linked list, don't ask me I'm just following instruction I've already axed the code once because I made a hash table once
 The linked list is will hold an order based on the hash value that will be generated from the name string
@@ -108,30 +107,29 @@ impl hash_struct {
     }
 }
 
-//When called, pass the thread number and the event string
-// pub fn log_event(event: String) {
-//     let timestamp = current_timestamp();
-//     unsafe {
-//         let mutex = OUTPUT_BUFF.as_ref().expect("Global string vector must be initialized.");
-//
-//         // Lock the Mutex to gain exclusive access
-//         let mut data = mutex.lock().unwrap();
-//
-//         println!("-> Adding '{}' to the global vector.", event);
-//         // Convert the string slice to an owned String before pushing
-//         data.push(format!("{}: THREAD {} ", timestamp, event.to_string()));
-//     }
-// }
-
 struct HashStructWrapper {
     // head: hash_struct,
+    OUTPUT_BUFF: Option<Mutex<Vec<String>>>,
     head: RwLock<hash_struct>,
 }
 impl HashStructWrapper {
     pub fn new() -> Self {
         return HashStructWrapper {
+            OUTPUT_BUFF: Some(Mutex::new(Vec::new())),
             head: RwLock::new(hash_struct::new(0, "head".parse().unwrap(), 0)),
         };
+    }
+
+    //When called, pass the thread number and the event string
+    fn log_event(&self, event: String) {
+        let timestamp = current_timestamp();
+        let mutex = self.OUTPUT_BUFF.as_ref().unwrap();
+
+        // Lock the Mutex to gain exclusive access
+        let mut data = mutex.lock().unwrap();
+
+        // Convert the string slice to an owned String before pushing
+        data.push(format!("{}: THREAD {} ", timestamp, event.to_string()));
     }
 }
 
@@ -270,10 +268,6 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
-    unsafe {
-        OUTPUT_BUFF = Some(Mutex::new(Vec::new()));
-    }
     
     let file = File::open("commands.txt")?;
     let mut reader = io::BufReader::new(file);
@@ -296,7 +290,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     println!("Max concurrent threads set to: {}", max_threads);
     //  can get max num of threads from the max_threads var and seperately roll out the commands
-
 
     for command in reader.lines() {
         let hs_clone = Arc::clone(&hash_struct);
