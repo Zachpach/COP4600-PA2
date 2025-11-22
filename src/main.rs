@@ -5,6 +5,9 @@ use std::string::String;
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+static AQUIRE_LOCK_MUTABLE_GLOBAL: Mutex<i32> = Mutex::new(0);
+static RELEASE_LOCK_MUTABLE_GLOBAL: Mutex<i32> = Mutex::new(0);
+
 /*
 This is the hash table structure given by the assignment
 This is, in fact, a linked list, don't ask me I'm just following instruction I've already axed the code once because I made a hash table once
@@ -109,7 +112,7 @@ impl hash_struct {
             None
         }
     }
-    fn print(&self) -> String{
+    fn print(&self) -> String {
         let mut output = String::new();
         if let Some(ref next) = self.next {
             output.push_str(&next.to_string());
@@ -349,6 +352,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     hash_struct.log_event("Final Table:".to_string());
     hash_struct.log_event(hash_struct.head.read().unwrap().print());
 
+    println!("{}", AQUIRE_LOCK_MUTABLE_GLOBAL.lock().unwrap());
+    println!("{}", RELEASE_LOCK_MUTABLE_GLOBAL.lock().unwrap());
+
     Ok(())
 }
 
@@ -408,8 +414,17 @@ fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
     //Thread awakened
     hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
 
+    let mut counter = AQUIRE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
+
     //Write lock acquired
-    hash_structure.log_event(format!("{} INSERT,{},{},{}", priority.clone(), hash, name, salary));
+    hash_structure.log_event(format!(
+        "{} INSERT,{},{},{}",
+        priority.clone(),
+        hash,
+        name,
+        salary
+    ));
     hash_structure.log_event(format!("{} WRITE LOCK ACQUIRED", priority.clone()));
     hash_structure
         .head
@@ -419,6 +434,9 @@ fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
 
     //Write lock released
     hash_structure.log_event(format!("{} WRITE LOCK RELEASED", priority.clone()));
+
+    let mut counter = RELEASE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
 
     // let mut can_start = hash_structure.lock.lock().unwrap();
     *can_start += 1;
@@ -440,6 +458,10 @@ fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     }
     //Thread awakened
     hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
+
+    let mut counter = AQUIRE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
+
     hash_structure.log_event(format!("{} DELETE,{},{}", priority.clone(), hash, name));
     //Write lock acquired
     hash_structure.log_event(format!("{} WRITE LOCK ACQUIRED", priority.clone()));
@@ -452,6 +474,9 @@ fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     hash_structure.log_event(format!("{} WRITE LOCK RELEASED", priority.clone()));
 
     // let mut can_start = hash_structure.lock.lock().unwrap();
+
+    let mut counter = RELEASE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
 
     *can_start += 1;
     hash_structure.cvar.notify_all();
@@ -472,7 +497,16 @@ fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
     }
     //Thread awakened
     hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
-    hash_structure.log_event(format!("{} UPDATE,{},{},{}", priority.clone(), hash, name, salary));
+    let mut counter = AQUIRE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
+
+    hash_structure.log_event(format!(
+        "{} UPDATE,{},{},{}",
+        priority.clone(),
+        hash,
+        name,
+        salary
+    ));
     //Write lock acquired
     hash_structure.log_event(format!("{} WRITE LOCK ACQUIRED", priority.clone()));
     if !hash_structure.head.write().unwrap().update(hash, salary) {
@@ -481,6 +515,9 @@ fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
 
     //Write lock released
     hash_structure.log_event(format!("{} WRITE LOCK RELEASED", priority.clone()));
+
+    let mut counter = RELEASE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
 
     // let mut can_start = hash_structure.lock.lock().unwrap();
     *can_start += 1;
@@ -503,6 +540,8 @@ fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     hash_structure.log_event(format!("{} SEARCH,{},{}", priority.clone(), hash, name));
     //Thread awakened
     hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
+    let mut counter = AQUIRE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
 
     //Read lock acquired
     hash_structure.log_event(format!("{} READ LOCK ACQUIRED", priority.clone()));
@@ -518,6 +557,9 @@ fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     //Read lock released
     hash_structure.log_event(format!("{} READ LOCK RELEASED", priority.clone()));
     // let mut can_start = hash_structure.lock.lock().unwrap();
+
+    let mut counter = RELEASE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
 
     *can_start += 1;
     hash_structure.cvar.notify_all();
@@ -537,6 +579,10 @@ fn print(hash_structure: &HashStructWrapper, priority: u32) {
     }
     //Thread awakened
     hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
+
+    let mut counter = AQUIRE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
+
     hash_structure.log_event(format!("{} PRINT", priority.clone()));
     //Read lock acquired
     hash_structure.log_event(format!("{} READ LOCK ACQUIRED", priority.clone()));
@@ -545,6 +591,9 @@ fn print(hash_structure: &HashStructWrapper, priority: u32) {
     // let mut can_start = hash_structure.lock.lock().unwrap();
     //Read lock released
     hash_structure.log_event(format!("{} READ LOCK RELEASED", priority.clone()));
+
+    let mut counter = RELEASE_LOCK_MUTABLE_GLOBAL.lock().unwrap();
+    *counter += 1;
 
     *can_start += 1;
     hash_structure.cvar.notify_all();
