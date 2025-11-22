@@ -33,6 +33,7 @@ impl hash_struct {
             Some(ref mut next_node) => {
                 if new_hash.hash < next_node.hash {
                     // Insert between `self` and `next_node`
+                    println!("Inserted {},{},{}", new_hash.hash, new_hash.name, new_hash.salary);
                     let mut boxed = Box::new(new_hash);
                     boxed.next = self.next.take();
                     self.next = Some(boxed);
@@ -46,6 +47,7 @@ impl hash_struct {
             }
             None => {
                 // End of list → append
+                println!("Inserted {},{},{}", new_hash.hash, new_hash.name, new_hash.salary);
                 self.next = Some(Box::new(new_hash));
                 return true;
             }
@@ -391,6 +393,7 @@ fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    println!("insert {}", can_start);
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
@@ -398,7 +401,8 @@ fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
     if *can_start == priority {
-
+        let hash = jenkins_one_at_a_time_hash(name.clone());
+        hash_structure.head.write().unwrap().insert(hash_struct::new(hash, name.clone(), salary));
     }
     *can_start += 1;
     hash_structure.cvar.notify_all();
@@ -409,6 +413,7 @@ fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    println!("delete {}", can_start);
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
@@ -416,7 +421,10 @@ fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
     if *can_start == priority {
-
+        let hash = jenkins_one_at_a_time_hash(name.clone());
+        if !hash_structure.head.write().unwrap().delete(hash){
+            println!("{} not found", name);
+        }
     }
     *can_start += 1;
     hash_structure.cvar.notify_all();
@@ -427,6 +435,8 @@ fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    println!("update {}", can_start);
+
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
@@ -434,7 +444,10 @@ fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
     if *can_start == priority {
-
+        let hash = jenkins_one_at_a_time_hash(name.clone());
+        if !hash_structure.head.write().unwrap().update(hash, salary){
+            println!("{} not found", name);
+        }
     }
     *can_start += 1;
     hash_structure.cvar.notify_all();
@@ -445,6 +458,8 @@ fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    println!("search {}", can_start);
+
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
@@ -452,7 +467,15 @@ fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
     if *can_start == priority {
+        let hash = jenkins_one_at_a_time_hash(name.clone());
+        let mut l = hash_structure.head.read().unwrap();
+        let s = l.search(hash);
 
+        if s.is_some(){
+            println!("Found: {}", s.unwrap().to_string());
+        } else {
+            println!("{} not found", name.to_string());
+        }
     }
     *can_start += 1;
     hash_structure.cvar.notify_all();
@@ -464,6 +487,8 @@ fn print(hash_structure: &HashStructWrapper, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    println!("print {}", can_start);
+
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
@@ -471,7 +496,7 @@ fn print(hash_structure: &HashStructWrapper, priority: u32) {
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
     if *can_start == priority {
-
+        hash_structure.head.read().unwrap().print();
     }
     *can_start += 1;
     hash_structure.cvar.notify_all();
