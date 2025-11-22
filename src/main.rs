@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::string::String;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 static mut OUTPUT_BUFF: Option<Mutex<Vec<String>>> = None;
 /**
@@ -101,13 +102,18 @@ impl hash_struct {
         }
     }
 
-    fn log_event(priority: u32, msg: &str) {
+    //When called, pass the thread number and the event string
+    pub fn log_event(&self, event: String) {
+        let timestamp = current_timestamp();
         unsafe {
-            let timestamp = current_timestamp();
-            if let Some(ref mutex) = OUTPUT_BUFF {
-                let mut buffer = mutex.lock().unwrap();
-                buffer.push(format!("{}: THREAD {} {}", timestamp, priority, msg));
-            }
+            let mutex = OUTPUT_BUFF.as_ref().expect("Global string vector must be initialized.");
+            
+            // Lock the Mutex to gain exclusive access
+            let mut data = mutex.lock().unwrap(); 
+            
+            println!("-> Adding '{}' to the global vector.", event);
+            // Convert the string slice to an owned String before pushing
+            data.push(format!("{}: THREAD {} ", timestamp, event.to_string()));
         }
     }
 
