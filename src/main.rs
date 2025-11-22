@@ -2,7 +2,7 @@ extern crate core;
 use std::fs::File;
 use std::io::{self, BufRead, Write};
 use std::string::String;
-use std::sync::{Arc, RwLock, Mutex, Condvar};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /*
@@ -33,7 +33,10 @@ impl hash_struct {
             Some(ref mut next_node) => {
                 if new_hash.hash < next_node.hash {
                     // Insert between `self` and `next_node`
-                    println!("Inserted {},{},{}", new_hash.hash, new_hash.name, new_hash.salary);
+                    println!(
+                        "Inserted {},{},{}",
+                        new_hash.hash, new_hash.name, new_hash.salary
+                    );
                     let mut boxed = Box::new(new_hash);
                     boxed.next = self.next.take();
                     self.next = Some(boxed);
@@ -47,7 +50,10 @@ impl hash_struct {
             }
             None => {
                 // End of list → append
-                println!("Inserted {},{},{}", new_hash.hash, new_hash.name, new_hash.salary);
+                println!(
+                    "Inserted {},{},{}",
+                    new_hash.hash, new_hash.name, new_hash.salary
+                );
                 self.next = Some(Box::new(new_hash));
                 return true;
             }
@@ -116,7 +122,6 @@ struct HashStructWrapper {
     // cv: global lock for printing for log and waiting
     lock: Mutex<u32>,
     cvar: Condvar,
-
 }
 impl HashStructWrapper {
     pub fn new() -> Self {
@@ -125,7 +130,6 @@ impl HashStructWrapper {
             head: RwLock::new(hash_struct::new(0, "head".parse().unwrap(), 0)),
             lock: Mutex::new(0),
             cvar: Condvar::new(),
-
         };
     }
 
@@ -232,7 +236,15 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
                 }
             };
 
-            Some((command, parts[1].clone(), salary, 0))
+            let priority = match parts[3].parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => {
+                    eprintln!("Invalid priority in UPDATE: {}", line);
+                    return None;
+                }
+            };
+
+            Some((command, parts[1].clone(), salary, priority))
         }
 
         "search" => {
@@ -289,7 +301,6 @@ fn write_log_to_file(hash_structure: &HashStructWrapper) -> Result<(), Box<dyn s
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    
     let file = File::open("commands.txt")?;
     let mut reader = io::BufReader::new(file);
     let mut commands: Vec<(String, String, u32, u32)> = vec![];
@@ -322,8 +333,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         threads.push(current_thread)
     }
 
+    // let mut can_start = hash_struct.lock.lock().unwrap();
+    // *can_start = 0;
+    // hash_struct.cvar.notify_all();
+
     // write log to file
-    write_log_to_file(&hash_struct)?;
+    // write_log_to_file(&hash_struct)?;
 
     // shut down threads
     for thread in threads {
@@ -358,148 +373,155 @@ fn thread_op(hash_structure: &HashStructWrapper, command: String) {
     let parse = parse.unwrap();
 
     //acquiring lock
-    let mut can_start = hash_structure.lock.lock().unwrap();
-    //*can_start += 1;
-    hash_structure.cvar.notify_all();
+    // let mut can_start = hash_structure.lock.lock().unwrap();
+    // //*can_start += 1;
+    // hash_structure.cvar.notify_all();
 
     // control ordering run command once it the correct time
     println!("Thread Command: {}", command);
 
     match parse.0.as_str() {
-        "insert"=>{
-            insert(hash_structure, parse.1, parse.2, parse.3)
-        }
-        "delete"=>{
-            delete(hash_structure, parse.1, parse.3)
-        }
-        "update"=>{
-            update(hash_structure, parse.1, parse.2, parse.3)
-        }
-        "search"=>{
-            search(hash_structure, parse.1, parse.3)
-        }
-        "print"=>{
-            print(hash_structure, parse.3)
-        }
+        "insert" => insert(hash_structure, parse.1, parse.2, parse.3),
+        "delete" => delete(hash_structure, parse.1, parse.3),
+        "update" => update(hash_structure, parse.1, parse.2, parse.3),
+        "search" => search(hash_structure, parse.1, parse.3),
+        "print" => print(hash_structure, parse.3),
         _ => {
             eprintln!("Unknown command: {}", command);
         }
     }
 }
 
-
 fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {
-
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
-    println!("insert {}", can_start);
+    println!("--------------insert ({}) == {}", priority, can_start);
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
     while *can_start != priority {
+        println!("--------------insert ({}) == {}", priority, can_start);
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
-    if *can_start == priority {
-        let hash = jenkins_one_at_a_time_hash(name.clone());
-        hash_structure.head.write().unwrap().insert(hash_struct::new(hash, name.clone(), salary));
-    }
+    // drop(can_start);
+
+    let hash = jenkins_one_at_a_time_hash(name.clone());
+    hash_structure
+        .head
+        .write()
+        .unwrap()
+        .insert(hash_struct::new(hash, name.clone(), salary));
+
+    // let mut can_start = hash_structure.lock.lock().unwrap();
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
 }
 
 fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
-
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
-    println!("delete {}", can_start);
+    println!("---------------delete ({}) == {}", priority, can_start);
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
     while *can_start != priority {
+        println!("---------------delete ({}) == {}", priority, can_start);
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
-    if *can_start == priority {
-        let hash = jenkins_one_at_a_time_hash(name.clone());
-        if !hash_structure.head.write().unwrap().delete(hash){
-            println!("{} not found", name);
-        }
+
+    // drop(can_start);
+
+    let hash = jenkins_one_at_a_time_hash(name.clone());
+    if !hash_structure.head.write().unwrap().delete(hash) {
+        println!("{} not found", name);
     }
+
+    // let mut can_start = hash_structure.lock.lock().unwrap();
+
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
 }
 
 fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {
-
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
-    println!("update {}", can_start);
-
+    println!("-----------------update ({}) == {}", priority, can_start);
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
     while *can_start != priority {
+        println!("-----------------update ({}) == {}", priority, can_start);
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
-    if *can_start == priority {
-        let hash = jenkins_one_at_a_time_hash(name.clone());
-        if !hash_structure.head.write().unwrap().update(hash, salary){
-            println!("{} not found", name);
-        }
+    // drop(can_start);
+
+    let hash = jenkins_one_at_a_time_hash(name.clone());
+    if !hash_structure.head.write().unwrap().update(hash, salary) {
+        println!("{} not found", name);
     }
+
+    // let mut can_start = hash_structure.lock.lock().unwrap();
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
 }
 
 fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
-
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
-    println!("search {}", can_start);
+    println!("---------------search ({}) == {}", priority, can_start);
 
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
     while *can_start != priority {
+        println!("---------------search ({}) == {}", priority, can_start);
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
-    if *can_start == priority {
-        let hash = jenkins_one_at_a_time_hash(name.clone());
-        let mut l = hash_structure.head.read().unwrap();
-        let s = l.search(hash);
+    // drop(can_start);
 
-        if s.is_some(){
-            println!("Found: {}", s.unwrap().to_string());
-        } else {
-            println!("{} not found", name.to_string());
-        }
+    let hash = jenkins_one_at_a_time_hash(name.clone());
+    let mut l = hash_structure.head.read().unwrap();
+    let s = l.search(hash);
+
+    if s.is_some() {
+        println!("Found: {}", s.unwrap().to_string());
+    } else {
+        println!("{} not found", name.to_string());
     }
+
+    // let mut can_start = hash_structure.lock.lock().unwrap();
+
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
 }
-
-
 fn print(hash_structure: &HashStructWrapper, priority: u32) {
-
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
-    println!("print {}", can_start);
-
+    println!("-------------print ({}) == {}", priority, can_start);
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
     while *can_start != priority {
+        println!("-------------print ({}) == {}", priority, can_start);
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
-    if *can_start == priority {
-        hash_structure.head.read().unwrap().print();
-    }
+    // drop(can_start);
+    hash_structure.head.read().unwrap().print();
+
+    // let mut can_start = hash_structure.lock.lock().unwrap();
+
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
 }
 
 fn test_elements(hash_struct_wrapper: &HashStructWrapper) {
