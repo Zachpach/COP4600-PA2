@@ -316,7 +316,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file = File::open("commands.txt")?;
     let mut reader = io::BufReader::new(file);
     let mut threads = vec![];
-    let hash_struct = Arc::new(HashStructWrapper::new());
+    let mut hash_struct = Arc::new(HashStructWrapper::new());
 
     // read file and place commands into the commands array
     let mut first_line = String::new();
@@ -348,13 +348,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
 
+    hash_struct.log_event("\n".to_string());
     hash_struct.log_event(format!("Number of lock acquisitions: {}", AQUIRE_LOCK_MUTABLE_GLOBAL.lock().unwrap()));
     hash_struct.log_event(format!("Number of lock releases: {}", RELEASE_LOCK_MUTABLE_GLOBAL.lock().unwrap()));
 
     // write log to file
-    write_log_to_file(&hash_struct)?;
     hash_struct.log_event("Final Table:".to_string());
     hash_struct.log_event(hash_struct.head.read().unwrap().print());
+    write_log_to_file(&hash_struct)?;
 
     Ok(())
 }
