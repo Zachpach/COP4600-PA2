@@ -2,7 +2,7 @@ Experiences Trying to Learn Rust
 
     Zachary: I used w3school to gain the understanding on the syntax. used rust documentation, google, and chatgpt for debugging. RustRover for the IDE, this was very helpful. Learning this was a bruteforce endeavor.
 
-    Ben:
+    Ben: I used AI as a translator mostly as I knew the path forward that I had to make. However it seemed quite useful as another language as I delved deeper into what we had to do, being similar in nature to something like Java. Rust itself had a small pitfall for creating functions as well as using specific struct aspects.
 
     Dayton: I found YouTube, some stack overflow, W3 Schools and the rust documentation to be incredibly helpful for learning rust. I kinda dived into the deep end with this project though, with threads and conditions variables, which I wouldn't necessarily recommend. I think W3 Schools is a great beginner resource, just trying the problems and testing code there is incredibly informative, to the point of making rust seem very easy to pick up at times. I think for more specific implementations though, such as threads and locks, YouTube and the rust documentation cannot be underestimated. For condition variables for example, I copied the example code provided by the rust documentation, and tried to go line by line and comment what I thought the code was doing, which helped my understanding of rust quite a lot.
 
