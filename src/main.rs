@@ -298,19 +298,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //  can get max num of threads from the max_threads var and seperately roll out the commands
 
 
-    for line in reader.lines() {
-        let line = line?;
-        if let Some(parsed) = parse_line(line) {
-            commands.push(parsed);
-        }
-    }
-
-
-    for command in commands {
+    for command in reader.lines() {
         let hs_clone = Arc::clone(&hash_struct);
 
         let current_thread = std::thread::spawn(move || {
-            thread_op(&hs_clone, "command".to_string());
+            thread_op(&hs_clone, command.unwrap().to_string());
         });
 
         threads.push(current_thread)
