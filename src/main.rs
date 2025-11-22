@@ -1,9 +1,11 @@
 extern crate core;
 use std::fs::File;
 use std::io::{self, BufRead, Write};
+use std::ptr::hash;
 use std::string::String;
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+
 
 /*
 This is the hash table structure given by the assignment
@@ -131,6 +133,7 @@ struct HashStructWrapper {
     // cv: global lock for printing for log and waiting
     lock: Mutex<u32>,
     cvar: Condvar,
+
 }
 impl HashStructWrapper {
     pub fn new() -> Self {
@@ -153,6 +156,7 @@ impl HashStructWrapper {
         // Convert the string slice to an owned String before pushing
         data.push(format!("{}: THREAD {} ", timestamp, event.to_string()));
     }
+
 }
 
 fn current_timestamp() -> u128 {
@@ -315,6 +319,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut threads = vec![];
     let hash_struct = Arc::new(HashStructWrapper::new());
 
+    let mut locks_acquired = 0;
+    let mut locks_released = 0;
+
+
     // read file and place commands into the commands array
     let mut first_line = String::new();
     reader.read_line(&mut first_line)?;
@@ -333,7 +341,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let hs_clone = Arc::clone(&hash_struct);
 
         let current_thread = std::thread::spawn(move || {
-            thread_op(&hs_clone, command.unwrap().to_string());
+            thread_op(&hs_clone, command.unwrap().to_string(), &mut locks_acquired, &mut locks_released);
         });
 
         threads.push(current_thread)
@@ -367,7 +375,7 @@ fn jenkins_one_at_a_time_hash(key: String) -> u32 {
     return hash;
 }
 
-fn thread_op(hash_structure: &HashStructWrapper, command: String) {
+fn thread_op(hash_structure: &HashStructWrapper, command: String, locks_acquired: &mut i32, locks_released: &mut i32) {
     let parse = parse_line(command.clone());
 
     if parse.is_none() {
@@ -380,21 +388,23 @@ fn thread_op(hash_structure: &HashStructWrapper, command: String) {
     // println!("Thread Command: {}", command);
 
     match parse.0.as_str() {
-        "insert" => insert(hash_structure, parse.1, parse.2, parse.3),
-        "delete" => delete(hash_structure, parse.1, parse.3),
-        "update" => update(hash_structure, parse.1, parse.2, parse.3),
-        "search" => search(hash_structure, parse.1, parse.3),
-        "print" => print(hash_structure, parse.3),
+        "insert" => insert(hash_structure, locks_acquired, locks_released, parse.1, parse.2, parse.3),
+        "delete" => delete(hash_structure, locks_acquired, locks_released, parse.1, parse.3),
+        "update" => update(hash_structure, locks_acquired, locks_released, parse.1, parse.2, parse.3),
+        "search" => search(hash_structure, locks_acquired, locks_released, parse.1, parse.3),
+        "print" => print(hash_structure, locks_acquired, locks_released, parse.3),
         _ => {
             eprintln!("Unknown command: {}", command);
         }
     }
 }
 
-fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {
+fn insert(hash_structure: &HashStructWrapper, locks_acquired: &mut i32, locks_released: &mut i32, name: String, salary: u32, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    *locks_acquired +=1;
+
     let hash = jenkins_one_at_a_time_hash(name.clone());
 
     //if the lock isn't acquired, or this thread hasn't started, wait
@@ -423,12 +433,15 @@ fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
     // let mut can_start = hash_structure.lock.lock().unwrap();
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
+    *locks_released +=1;
 }
 
-fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
+fn delete(hash_structure: &HashStructWrapper, locks_acquired: &mut i32, locks_released: &mut i32, name: String, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    *locks_acquired +=1;
     let hash = jenkins_one_at_a_time_hash(name.clone());
 
     //if the lock isn't acquired, or this thread hasn't started, wait
@@ -455,12 +468,17 @@ fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
 
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
+    *locks_released +=1;
+
 }
 
-fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {
+fn update(hash_structure: &HashStructWrapper, locks_acquired: &mut i32, locks_released: &mut i32, name: String, salary: u32, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    *locks_acquired +=1;
+
     let hash = jenkins_one_at_a_time_hash(name.clone());
 
     //if the lock isn't acquired, or this thread hasn't started, wait
@@ -485,13 +503,18 @@ fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
     // let mut can_start = hash_structure.lock.lock().unwrap();
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
+    *locks_released +=1;
+
 }
 
-fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
+fn search(hash_structure: &HashStructWrapper, locks_acquired: &mut i32, locks_released: &mut i32, name: String, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    *locks_acquired +=1;
     let hash = jenkins_one_at_a_time_hash(name.clone());
+
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
@@ -521,11 +544,15 @@ fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
 
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
+    *locks_released +=1;
+
 }
-fn print(hash_structure: &HashStructWrapper, priority: u32) {
+fn print(hash_structure: &HashStructWrapper, locks_acquired: &mut i32, locks_released: &mut i32, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    *locks_acquired +=1;
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
@@ -548,4 +575,7 @@ fn print(hash_structure: &HashStructWrapper, priority: u32) {
 
     *can_start += 1;
     hash_structure.cvar.notify_all();
+    drop(can_start);
+    *locks_released +=1;
+
 }
