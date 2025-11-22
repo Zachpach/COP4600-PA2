@@ -313,14 +313,14 @@ fn jenkins_one_at_a_time_hash(key: String) -> u32 {
     let mut i: usize = 0;
     let mut hash: u32 = 0;
     while i != key.len() {
-        hash += key.as_bytes()[i] as u32;
-        hash += hash << 10;
+        hash = hash.wrapping_add(key.as_bytes()[i] as u32);
+        hash = hash.wrapping_add(hash << 10);
         hash ^= hash >> 6;
         i += 1;
     }
-    hash += hash << 3;
+    hash = hash.wrapping_add(hash << 3);
     hash ^= hash >> 11;
-    hash += hash << 15;
+    hash = hash.wrapping_add(hash << 15);
     return hash;
 }
 
