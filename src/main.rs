@@ -1,6 +1,6 @@
 extern crate core;
 use std::fs::File;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 use std::string::String;
 use std::sync::{Arc, RwLock, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -267,6 +267,18 @@ fn parse_line(line: String) -> Option<(String, String, u32, u32)> {
     }
 }
 
+fn write_log_to_file(hash_structure: &HashStructWrapper) -> Result<(), Box<dyn std::error::Error>> {
+    let mutex = hash_structure.OUTPUT_BUFF.as_ref().unwrap();
+    let data = mutex.lock().unwrap();
+
+    let mut file = File::create("hash.log")?;
+    for entry in data.iter() {
+        writeln!(file, "{}", entry)?;
+    }
+
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let file = File::open("commands.txt")?;
@@ -300,6 +312,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         threads.push(current_thread)
     }
+
+    // write log to file
+    write_log_to_file(&hash_struct)?;
 
     // shut down threads
     for thread in threads {
