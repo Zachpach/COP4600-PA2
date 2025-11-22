@@ -109,11 +109,14 @@ impl hash_struct {
             None
         }
     }
-    fn print(&self) {
+    fn print(&self) -> String{
+        let mut output = String::new();
         if let Some(ref next) = self.next {
-            println!("{}", next.to_string());
-            next.print();
+            output.push_str(&next.to_string());
+            output.push_str("\n");
+            output.push_str(&next.print());
         }
+        output
     }
 
     pub fn to_string(&self) -> String {
@@ -341,6 +344,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         thread.join().unwrap();
     }
 
+    // write log to file
+    write_log_to_file(&hash_struct)?;
+    hash_struct.log_event("Final Table:".to_string());
+    hash_struct.log_event(hash_struct.head.read().unwrap().print());
+
     Ok(())
 }
 
@@ -387,43 +395,63 @@ fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    let hash = jenkins_one_at_a_time_hash(name.clone());
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
 
+    //Thread wait loop
+    hash_structure.log_event(format!("{} WAITING FOR MY TURN", priority.clone()));
     while *can_start != priority {
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
-    // drop(can_start);
+    //Thread awakened
+    hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
 
-    let hash = jenkins_one_at_a_time_hash(name.clone());
+    //Write lock acquired
+    hash_structure.log_event(format!("{} INSERT,{},{},{}", priority.clone(), hash, name, salary));
+    hash_structure.log_event(format!("{} WRITE LOCK ACQUIRED", priority.clone()));
     hash_structure
         .head
         .write()
         .unwrap()
         .insert(hash_struct::new(hash, name.clone(), salary));
 
+    //Write lock released
+    hash_structure.log_event(format!("{} WRITE LOCK RELEASED", priority.clone()));
+
     // let mut can_start = hash_structure.lock.lock().unwrap();
     *can_start += 1;
     hash_structure.cvar.notify_all();
-    drop(can_start);
 }
 
 fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    let hash = jenkins_one_at_a_time_hash(name.clone());
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
+    //Thread wait loop
+    hash_structure.log_event(format!("{} WAITING FOR MY TURN", priority.clone()));
     while *can_start != priority {
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
+    //Thread awakened
+    hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
+    hash_structure.log_event(format!("{} DELETE,{},{}", priority.clone(), hash, name));
+    //Write lock acquired
+    hash_structure.log_event(format!("{} WRITE LOCK ACQUIRED", priority.clone()));
 
-    let hash = jenkins_one_at_a_time_hash(name.clone());
     if !hash_structure.head.write().unwrap().delete(hash) {
         println!("{} not found.", name);
     }
+
+    //Write lock released
+    hash_structure.log_event(format!("{} WRITE LOCK RELEASED", priority.clone()));
+
+    // let mut can_start = hash_structure.lock.lock().unwrap();
 
     *can_start += 1;
     hash_structure.cvar.notify_all();
@@ -433,17 +461,26 @@ fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    let hash = jenkins_one_at_a_time_hash(name.clone());
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
+    //Thread wait loop
+    hash_structure.log_event(format!("{} WAITING FOR MY TURN", priority.clone()));
     while *can_start != priority {
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
-
-    let hash = jenkins_one_at_a_time_hash(name.clone());
+    //Thread awakened
+    hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
+    hash_structure.log_event(format!("{} UPDATE,{},{},{}", priority.clone(), hash, name, salary));
+    //Write lock acquired
+    hash_structure.log_event(format!("{} WRITE LOCK ACQUIRED", priority.clone()));
     if !hash_structure.head.write().unwrap().update(hash, salary) {
         println!("Update failed. Entry {} not found.", hash);
     }
+
+    //Write lock released
+    hash_structure.log_event(format!("{} WRITE LOCK RELEASED", priority.clone()));
 
     // let mut can_start = hash_structure.lock.lock().unwrap();
     *can_start += 1;
@@ -454,14 +491,21 @@ fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     // Wait for the thread to start up.
     //get information on lock
     let mut can_start = hash_structure.lock.lock().unwrap();
+    let hash = jenkins_one_at_a_time_hash(name.clone());
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
+    //Thread wait loop
+    hash_structure.log_event(format!("{} WAITING FOR MY TURN", priority.clone()));
     while *can_start != priority {
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
+    hash_structure.log_event(format!("{} SEARCH,{},{}", priority.clone(), hash, name));
+    //Thread awakened
+    hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
 
-    let hash = jenkins_one_at_a_time_hash(name.clone());
+    //Read lock acquired
+    hash_structure.log_event(format!("{} READ LOCK ACQUIRED", priority.clone()));
     let mut l = hash_structure.head.read().unwrap();
     let s = l.search(hash);
 
@@ -470,6 +514,10 @@ fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     } else {
         println!("{} not found.", name.to_string());
     }
+
+    //Read lock released
+    hash_structure.log_event(format!("{} READ LOCK RELEASED", priority.clone()));
+    // let mut can_start = hash_structure.lock.lock().unwrap();
 
     *can_start += 1;
     hash_structure.cvar.notify_all();
@@ -481,12 +529,22 @@ fn print(hash_structure: &HashStructWrapper, priority: u32) {
 
     //if the lock isn't acquired, or this thread hasn't started, wait
     // As long as the value inside the `Mutex<bool>` is `false`, we wait.
+
+    //Thread wait loop
+    hash_structure.log_event(format!("{} WAITING FOR MY TURN", priority.clone()));
     while *can_start != priority {
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
-
+    //Thread awakened
+    hash_structure.log_event(format!("{} AWAKENED FOR WORK", priority.clone()));
+    hash_structure.log_event(format!("{} PRINT", priority.clone()));
+    //Read lock acquired
+    hash_structure.log_event(format!("{} READ LOCK ACQUIRED", priority.clone()));
     println!("Current Database:");
-    hash_structure.head.read().unwrap().print();
+    print!("{}", hash_structure.head.read().unwrap().print());
+    // let mut can_start = hash_structure.lock.lock().unwrap();
+    //Read lock released
+    hash_structure.log_event(format!("{} READ LOCK RELEASED", priority.clone()));
 
     *can_start += 1;
     hash_structure.cvar.notify_all();
