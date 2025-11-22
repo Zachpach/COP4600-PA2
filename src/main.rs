@@ -347,13 +347,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         thread.join().unwrap();
     }
 
+
+    hash_struct.log_event(format!("Number of lock acquisitions: {}", AQUIRE_LOCK_MUTABLE_GLOBAL.lock().unwrap()));
+    hash_struct.log_event(format!("Number of lock releases: {}", RELEASE_LOCK_MUTABLE_GLOBAL.lock().unwrap()));
+
     // write log to file
     write_log_to_file(&hash_struct)?;
     hash_struct.log_event("Final Table:".to_string());
     hash_struct.log_event(hash_struct.head.read().unwrap().print());
-
-    println!("{}", AQUIRE_LOCK_MUTABLE_GLOBAL.lock().unwrap());
-    println!("{}", RELEASE_LOCK_MUTABLE_GLOBAL.lock().unwrap());
 
     Ok(())
 }
