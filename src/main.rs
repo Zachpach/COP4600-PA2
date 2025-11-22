@@ -1,3 +1,4 @@
+extern crate core;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::string::String;
@@ -108,19 +109,19 @@ impl hash_struct {
 }
 
 //When called, pass the thread number and the event string
-pub fn log_event(event: String) {
-    let timestamp = current_timestamp();
-    unsafe {
-        let mutex = OUTPUT_BUFF.as_ref().expect("Global string vector must be initialized.");
-        
-        // Lock the Mutex to gain exclusive access
-        let mut data = mutex.lock().unwrap(); 
-        
-        println!("-> Adding '{}' to the global vector.", event);
-        // Convert the string slice to an owned String before pushing
-        data.push(format!("{}: THREAD {} ", timestamp, event.to_string()));
-    }
-}
+// pub fn log_event(event: String) {
+//     let timestamp = current_timestamp();
+//     unsafe {
+//         let mutex = OUTPUT_BUFF.as_ref().expect("Global string vector must be initialized.");
+//
+//         // Lock the Mutex to gain exclusive access
+//         let mut data = mutex.lock().unwrap();
+//
+//         println!("-> Adding '{}' to the global vector.", event);
+//         // Convert the string slice to an owned String before pushing
+//         data.push(format!("{}: THREAD {} ", timestamp, event.to_string()));
+//     }
+// }
 
 struct HashStructWrapper {
     // head: hash_struct,
@@ -285,7 +286,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read file and place commands into the commands array
     let mut first_line = String::new();
     reader.read_line(&mut first_line)?;
-    
+
     let max_threads = match parse_thread_command(first_line.trim().to_string()) {
         Some(n) if n > 0 => n,
         _ => {
@@ -320,7 +321,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         thread.join().unwrap();
     }
 
-
     Ok(())
 }
 
@@ -340,11 +340,36 @@ fn jenkins_one_at_a_time_hash(key: String) -> u32 {
 }
 
 fn thread_op(hash_structure: &HashStructWrapper, command: String) {
-    parse_line(command.clone());
+    let parse = parse_line(command.clone());
 
+    if parse.is_none() {
+        return;
+    }
+
+    let parse = parse.unwrap();
     // control ordering run command once it the correct time
     println!("Thread Command: {}", command);
 
+    match parse.0.as_str() {
+        "insert"=>{
+            insert(hash_structure, parse.1, parse.2, parse.3)
+        }
+        "delete"=>{
+            delete(hash_structure, parse.1, parse.3)
+        }
+        "update"=>{
+            update(hash_structure, parse.1, parse.2, parse.3)
+        }
+        "search"=>{
+            search(hash_structure, parse.1, parse.3)
+        }
+        "print"=>{
+            print(hash_structure, parse.3)
+        }
+        _ => {
+            eprintln!("Unknown command: {}", command);
+        }
+    }
 }
 
 fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {}
