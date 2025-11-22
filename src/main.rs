@@ -102,23 +102,23 @@ impl hash_struct {
         }
     }
 
-    //When called, pass the thread number and the event string
-    pub fn log_event(&self, event: String) {
-        let timestamp = current_timestamp();
-        unsafe {
-            let mutex = OUTPUT_BUFF.as_ref().expect("Global string vector must be initialized.");
-            
-            // Lock the Mutex to gain exclusive access
-            let mut data = mutex.lock().unwrap(); 
-            
-            println!("-> Adding '{}' to the global vector.", event);
-            // Convert the string slice to an owned String before pushing
-            data.push(format!("{}: THREAD {} ", timestamp, event.to_string()));
-        }
-    }
-
     pub fn to_string(&self) -> String {
         return format!("{}, {}, {}", self.hash, self.name, self.salary);
+    }
+}
+
+//When called, pass the thread number and the event string
+pub fn log_event(event: String) {
+    let timestamp = current_timestamp();
+    unsafe {
+        let mutex = OUTPUT_BUFF.as_ref().expect("Global string vector must be initialized.");
+        
+        // Lock the Mutex to gain exclusive access
+        let mut data = mutex.lock().unwrap(); 
+        
+        println!("-> Adding '{}' to the global vector.", event);
+        // Convert the string slice to an owned String before pushing
+        data.push(format!("{}: THREAD {} ", timestamp, event.to_string()));
     }
 }
 
