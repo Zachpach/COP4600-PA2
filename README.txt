@@ -1,6 +1,6 @@
 Experiences Trying to Learn Rust
 
-    Zachary:
+    Zachary: I used w3school to gain the understanding on the syntax. used rust documentation, google, and chatgpt for debugging. RustRover for the IDE, this was very helpful. Learning this was a bruteforce endeavor.
 
     Ben:
 
