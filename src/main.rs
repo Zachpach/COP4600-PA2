@@ -2,7 +2,7 @@ extern crate core;
 use std::fs::File;
 use std::io::{self, BufRead, Write};
 use std::string::String;
-use std::sync::{Arc, RwLock, Mutex};
+use std::sync::{Arc, RwLock, Mutex, Condvar};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /*
@@ -111,12 +111,19 @@ struct HashStructWrapper {
     // head: hash_struct,
     OUTPUT_BUFF: Option<Mutex<Vec<String>>>,
     head: RwLock<hash_struct>,
+    // cv: global lock for printing for log and waiting
+    lock: Mutex<u32>,
+    cvar: Condvar,
+
 }
 impl HashStructWrapper {
     pub fn new() -> Self {
         return HashStructWrapper {
             OUTPUT_BUFF: Some(Mutex::new(Vec::new())),
             head: RwLock::new(hash_struct::new(0, "head".parse().unwrap(), 0)),
+            lock: Mutex::new(0),
+            cvar: Condvar::new(),
+
         };
     }
 
@@ -347,6 +354,12 @@ fn thread_op(hash_structure: &HashStructWrapper, command: String) {
     }
 
     let parse = parse.unwrap();
+
+    //acquiring lock
+    let mut can_start = hash_structure.lock.lock().unwrap();
+    //*can_start += 1;
+    hash_structure.cvar.notify_all();
+
     // control ordering run command once it the correct time
     println!("Thread Command: {}", command);
 
@@ -372,14 +385,97 @@ fn thread_op(hash_structure: &HashStructWrapper, command: String) {
     }
 }
 
-fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {}
 
-fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {}
+fn insert(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {
 
-fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {}
+    // Wait for the thread to start up.
+    //get information on lock
+    let mut can_start = hash_structure.lock.lock().unwrap();
 
-fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {}
-fn print(hash_structure: &HashStructWrapper, priority: u32) {}
+    //if the lock isn't acquired, or this thread hasn't started, wait
+    // As long as the value inside the `Mutex<bool>` is `false`, we wait.
+    while *can_start != priority {
+        can_start = hash_structure.cvar.wait(can_start).unwrap();
+    }
+    if *can_start == priority {
+
+    }
+    *can_start += 1;
+    hash_structure.cvar.notify_all();
+}
+
+fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
+
+    // Wait for the thread to start up.
+    //get information on lock
+    let mut can_start = hash_structure.lock.lock().unwrap();
+
+    //if the lock isn't acquired, or this thread hasn't started, wait
+    // As long as the value inside the `Mutex<bool>` is `false`, we wait.
+    while *can_start != priority {
+        can_start = hash_structure.cvar.wait(can_start).unwrap();
+    }
+    if *can_start == priority {
+
+    }
+    *can_start += 1;
+    hash_structure.cvar.notify_all();
+}
+
+fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priority: u32) {
+
+    // Wait for the thread to start up.
+    //get information on lock
+    let mut can_start = hash_structure.lock.lock().unwrap();
+
+    //if the lock isn't acquired, or this thread hasn't started, wait
+    // As long as the value inside the `Mutex<bool>` is `false`, we wait.
+    while *can_start != priority {
+        can_start = hash_structure.cvar.wait(can_start).unwrap();
+    }
+    if *can_start == priority {
+
+    }
+    *can_start += 1;
+    hash_structure.cvar.notify_all();
+}
+
+fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
+
+    // Wait for the thread to start up.
+    //get information on lock
+    let mut can_start = hash_structure.lock.lock().unwrap();
+
+    //if the lock isn't acquired, or this thread hasn't started, wait
+    // As long as the value inside the `Mutex<bool>` is `false`, we wait.
+    while *can_start != priority {
+        can_start = hash_structure.cvar.wait(can_start).unwrap();
+    }
+    if *can_start == priority {
+
+    }
+    *can_start += 1;
+    hash_structure.cvar.notify_all();
+}
+
+
+fn print(hash_structure: &HashStructWrapper, priority: u32) {
+
+    // Wait for the thread to start up.
+    //get information on lock
+    let mut can_start = hash_structure.lock.lock().unwrap();
+
+    //if the lock isn't acquired, or this thread hasn't started, wait
+    // As long as the value inside the `Mutex<bool>` is `false`, we wait.
+    while *can_start != priority {
+        can_start = hash_structure.cvar.wait(can_start).unwrap();
+    }
+    if *can_start == priority {
+
+    }
+    *can_start += 1;
+    hash_structure.cvar.notify_all();
+}
 
 fn test_elements(hash_struct_wrapper: &HashStructWrapper) {
     hash_struct_wrapper
