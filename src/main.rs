@@ -66,6 +66,7 @@ impl hash_struct {
             // If the next node is the one to delete
             if next_node.hash == hash {
                 // Remove it by taking ownership of its `next`
+                println!("Deleted record for {}", next_node.to_string());
                 let next_next = next_node.next.take();
                 self.next = next_next;
                 return true;
@@ -81,7 +82,12 @@ impl hash_struct {
 
     pub fn update(&mut self, hash: u32, new_salary: u32) -> bool {
         if self.hash == hash {
+            let before = self.to_string();
             self.salary = new_salary;
+            let after = self.to_string();
+
+            println!("Updated record {} from {} to {}", self.hash, before, after);
+
             return true;
         }
 
@@ -111,7 +117,7 @@ impl hash_struct {
     }
 
     pub fn to_string(&self) -> String {
-        return format!("{}, {}, {}", self.hash, self.name, self.salary);
+        return format!("{},{},{}", self.hash, self.name, self.salary);
     }
 }
 
@@ -306,7 +312,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut threads = vec![];
     let hash_struct = Arc::new(HashStructWrapper::new());
 
-
     // read file and place commands into the commands array
     let mut first_line = String::new();
     reader.read_line(&mut first_line)?;
@@ -330,7 +335,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         threads.push(current_thread)
     }
-
 
     // shut down threads
     for thread in threads {
@@ -418,7 +422,7 @@ fn delete(hash_structure: &HashStructWrapper, name: String, priority: u32) {
 
     let hash = jenkins_one_at_a_time_hash(name.clone());
     if !hash_structure.head.write().unwrap().delete(hash) {
-        println!("{} not found", name);
+        println!("{} not found.", name);
     }
 
     *can_start += 1;
@@ -438,7 +442,7 @@ fn update(hash_structure: &HashStructWrapper, name: String, salary: u32, priorit
 
     let hash = jenkins_one_at_a_time_hash(name.clone());
     if !hash_structure.head.write().unwrap().update(hash, salary) {
-        println!("{} not found", name);
+        println!("Update failed. Entry {} not found.", hash);
     }
 
     // let mut can_start = hash_structure.lock.lock().unwrap();
@@ -464,7 +468,7 @@ fn search(hash_structure: &HashStructWrapper, name: String, priority: u32) {
     if s.is_some() {
         println!("Found: {}", s.unwrap().to_string());
     } else {
-        println!("{} not found", name.to_string());
+        println!("{} not found.", name.to_string());
     }
 
     *can_start += 1;
@@ -480,6 +484,8 @@ fn print(hash_structure: &HashStructWrapper, priority: u32) {
     while *can_start != priority {
         can_start = hash_structure.cvar.wait(can_start).unwrap();
     }
+
+    println!("Current Database:");
     hash_structure.head.read().unwrap().print();
 
     *can_start += 1;
